@@ -9,4 +9,5 @@
  (synopsis "collect activity as markdown")
  (depends
   cohttp-lwt-unix
-  yojson))
+  yojson
+  (ocaml (>= 4.08))))
