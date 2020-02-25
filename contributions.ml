@@ -174,13 +174,17 @@ let pp_body f = function
   | body -> Fmt.pf f "  @,@[<hov>%a@]" Fmt.words body
 
 let pp_item f t =
-  Fmt.pf f "@[<v>%a%a@]" pp_title t pp_body t.body
+  Fmt.pf f "@[<v>%a.%a@]" pp_title t pp_body t.body
+
+let pp_items = Fmt.(list ~sep:(cut ++ cut) pp_item)
 
 let pp_repo f (name, items) =
-  Fmt.pf f "### %s@,@,%a" name Fmt.(list ~sep:(cut ++ cut) pp_item) items
+  Fmt.pf f "### %s@,@,%a" name pp_items items
 
-let items_by_repo ~from json =
-  let t = of_json ~from:(to_8601 from) json in
-  Repo_map.bindings t
-
-let pp ~from = Fmt.(using (items_by_repo ~from) (list ~sep:(cut ++ cut) pp_repo))
+let pp ~from f json =
+  let from = to_8601 from in
+  let by_repo = Repo_map.bindings @@ of_json ~from json in
+  match by_repo with
+  | [] -> Fmt.pf f "(no activity found since %s)" from
+  | [(_, items)] -> pp_items f items
+  | repos -> Fmt.(list ~sep:(cut ++ cut)) pp_repo f repos
