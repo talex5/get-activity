@@ -39,7 +39,7 @@ At the moment, GitHub activity is the only source it queries.
 Put this in your `~/.vimrc`:
 
 ```
-au BufRead,BufNewFile **/log.md map \a G:r! github-activity<CR>
+au BufRead,BufNewFile **/log.md map \a G:r! get-activity<CR>
 ```
 
 Then `\a` (in normal mode) will paste recent activity at the end of the file.
