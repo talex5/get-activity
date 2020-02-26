@@ -124,18 +124,13 @@ let read_reviews json =
   let repo = review / "repository" / "nameWithOwner" |> Json.Util.to_string in
   { kind = `Review state; date; url; title; body; repo }
 
-let read_repos ~from json =
-  Json.Util.to_list (json / "nodes") |> List.filter ((<>) `Null) |> List.filter_map @@ fun node ->
+let read_repos json =
+  Json.Util.to_list (json / "nodes") |> List.filter ((<>) `Null) |> List.map @@ fun node ->
   let date = Datetime.parse (node / "occurredAt") in
-  if date >= from then (
-    let repo = node / "repository" in
-    let url = repo / "url" |> Json.Util.to_string in
-    let repo = repo / "nameWithOwner" |> Json.Util.to_string in
-    Some { kind = `New_repo; date; url; title = "Created new repository"; body = ""; repo }
-  ) else (
-    (* GitHub seems to ignore the time part, so do the filtering for it. *)
-    None
-  )
+  let repo = node / "repository" in
+  let url = repo / "url" |> Json.Util.to_string in
+  let repo = repo / "nameWithOwner" |> Json.Util.to_string in
+  { kind = `New_repo; date; url; title = "Created new repository"; body = ""; repo }
 
 let of_json ~from json =
   let contribs = json / "data" / "viewer" / "contributionsCollection" in
@@ -143,12 +138,15 @@ let of_json ~from json =
     read_issues  (contribs / "issueContributions") @
     read_prs     (contribs / "pullRequestContributions") @
     read_reviews (contribs / "pullRequestReviewContributions") @
-    read_repos   (contribs / "repositoryContributions") ~from
+    read_repos   (contribs / "repositoryContributions")
   in
-  List.fold_left (fun acc item ->
+  (* GitHub seems to ignore the time part, so do the filtering here. *)
+  items
+  |> List.filter (fun item -> item.date >= from)
+  |> List.fold_left (fun acc item ->
       let items = Repo_map.find_opt item.repo acc |> Option.value ~default:[] in
       Repo_map.add item.repo (item :: items) acc
-    ) Repo_map.empty items
+    ) Repo_map.empty
 
 let id url =
   match Astring.String.cut ~sep:"/" ~rev:true url with
