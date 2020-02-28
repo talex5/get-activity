@@ -1,3 +1,5 @@
+let ( / ) = Filename.concat
+
 let or_die = function
   | Ok x -> x
   | Error (`Msg m) ->
@@ -6,7 +8,22 @@ let or_die = function
 
 let one_week = 60. *. 60. *. 24. *. 7.
 
-let last_fetch_file = ".github-activity-timestamp"
+let home =
+  match Sys.getenv_opt "HOME" with
+  | None -> Fmt.failwith "$HOME is not set!"
+  | Some dir -> dir
+
+let ensure_dir_exists ~mode path =
+  match Unix.stat path with
+  | exception Unix.Unix_error(Unix.ENOENT, _, _) ->
+    Unix.mkdir path mode
+  | Unix.{ st_kind = S_DIR; _} -> ()
+  | _ -> Fmt.failwith "%S is not a directory!" path
+
+let last_fetch_file =
+  let dir = home / ".github" in
+  ensure_dir_exists ~mode:0o700 dir;
+  dir / "get-activity-timestamp"
 
 let mtime path =
   match Unix.stat path with
@@ -19,10 +36,7 @@ let set_mtime path time =
   Unix.utimes path time time
 
 let get_token () =
-  let ( / ) = Filename.concat in
-  match Sys.getenv_opt "HOME" with
-  | None -> Error (`Msg "$HOME is not set - can't locate GitHub token!")
-  | Some home -> Token.load (home / ".github" / "github-activity-token")
+  Token.load (home / ".github" / "github-activity-token")
 
 (* Run [fn timestamp], where [timestamp] is the last recorded timestamp (if any).
    On success, update the timestamp to the start time. *)
