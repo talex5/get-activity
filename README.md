@@ -3,7 +3,7 @@ The idea is that you keep a journal (e.g. `log.md`) and instead of manually copy
 into it, you just run a command in your text editor and it pastes in everything you did since the last
 paste. You can then edit this text as required.
 
-For example, after creating this repository and making a PR against it, I type `\a` in Vim and it inserts:
+For example, after creating this repository and making a PR against it, I press F5 in Vim and it inserts:
 
 ```
 Created repository [talex5/get-activity](https://github.com/talex5/get-activity).
@@ -39,10 +39,13 @@ At the moment, GitHub activity is the only source it queries.
 Put this in your `~/.vimrc`:
 
 ```
-au BufRead,BufNewFile **/log.md map \a G:r! get-activity<CR>
+au BufRead,BufNewFile **/log.md noremap <F5> Go<Esc>:r! get-activity<CR>
+au BufRead,BufNewFile **/log.md inoremap <F5> <C-O>:r! get-activity<CR>
 ```
 
-Then `\a` (in normal mode) will paste recent activity at the end of the file.
+Then, pressing F5 will paste recent activity.
+In normal mode, it pastes it at the end of the file.
+In insert mode, it pastes it at the cursor.
 
 Tip: if you want to be able to open the URLs it adds in a browser, you can use something like this:
 
