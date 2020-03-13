@@ -133,6 +133,7 @@ let read_repos json =
   { kind = `New_repo; date; url; title = "Created new repository"; body = ""; repo }
 
 let of_json ~from json =
+  let from = to_8601 from in
   let contribs = json / "data" / "viewer" / "contributionsCollection" in
   let items =
     read_issues  (contribs / "issueContributions") @
@@ -179,10 +180,13 @@ let pp_items = Fmt.(list ~sep:(cut ++ cut) pp_item)
 let pp_repo f (name, items) =
   Fmt.pf f "### %s@,@,%a" name pp_items items
 
-let pp ~from f json =
-  let from = to_8601 from in
-  let by_repo = Repo_map.bindings @@ of_json ~from json in
+type t = item list Repo_map.t
+
+let is_empty = Repo_map.is_empty
+
+let pp f t =
+  let by_repo = Repo_map.bindings t in
   match by_repo with
-  | [] -> Fmt.pf f "(no activity found since %s)" from
+  | [] -> Fmt.string f "(no activity)"
   | [(_, items)] -> pp_items f items
   | repos -> Fmt.(list ~sep:(cut ++ cut)) pp_repo f repos
