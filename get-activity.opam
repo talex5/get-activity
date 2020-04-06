@@ -9,6 +9,7 @@ depends: [
   "dune" {>= "2.3"}
   "cohttp-lwt-unix"
   "yojson"
+  "cmdliner"
   "ocaml" {>= "4.08"}
 ]
 build: [
