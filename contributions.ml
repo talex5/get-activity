@@ -170,7 +170,9 @@ let pp_title f t =
 
 let pp_body f = function
   | "" -> ()
-  | body -> Fmt.pf f "  @,@[<hov>%a@]" Fmt.words body
+  | body ->
+    let body = body |> String.split_on_char (Char.chr 13) |> String.concat "" in
+    Fmt.pf f "  @,@[<hov>%a@]" Fmt.text body
 
 let pp_item f t =
   Fmt.pf f "@[<v>%a.%a@]" pp_title t pp_body t.body
