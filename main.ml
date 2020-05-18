@@ -47,7 +47,11 @@ let with_timestamp fn =
   set_mtime last_fetch_file now
 
 let show ~from json =
-  Fmt.pr "@[<v>%a@]@." (Contributions.pp ~from) json
+  let contribs = Contributions.of_json ~from json in
+  if Contributions.is_empty contribs then
+    Fmt.epr "(no activity found since %s)@." (Contributions.to_8601 from)
+  else
+    Fmt.pr "@[<v>%a@]@." Contributions.pp contribs
 
 let mode = `Normal
 
