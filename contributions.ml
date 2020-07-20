@@ -93,7 +93,7 @@ type item = {
 }
 
 let read_issues json =
-  Json.Util.to_list (json / "nodes") |> List.map @@ fun node ->
+  Json.Util.to_list (json / "nodes") |> List.filter ((<>) `Null) |> List.map @@ fun node ->
   let date = Datetime.parse (node / "occurredAt") in
   let x = node / "issue" in
   let url = x / "url" |> Json.Util.to_string in
