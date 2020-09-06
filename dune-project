@@ -1,4 +1,5 @@
 (lang dune 2.3)
+(name get-activity)
 (formatting disabled)
 (generate_opam_files true)
 (source (github talex5/get-activity))
