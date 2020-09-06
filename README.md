@@ -21,6 +21,17 @@ This renders as:
 > If there is no activity, display a suitable message. If only one repository
 > has activity, don't add a heading for it.
 
+## Installation
+
+Install [opam][] if you don't already have it and then:
+
+```
+git clone https://github.com/talex5/get-activity.git
+cd get-activity
+opam pin -n get-activity.dev .
+opam depext -i get-activity
+```
+
 ## Activity sources
 
 At the moment, GitHub activity is the only source it queries.
@@ -53,3 +64,5 @@ Tip: if you want to be able to open the URLs it adds in a browser, you can use s
 " gx to open URLs in Firefox
 let g:netrw_browsex_viewer= "firefox"
 ```
+
+[opam]: http://opam.ocaml.org/
