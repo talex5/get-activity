@@ -109,14 +109,12 @@ let since =
 
 let info = Term.info "get-activity"
 
-let since = match Term.eval (since, info) with `Ok x -> x | _ -> assert false
-
 let pp_since ppf = function
   | `Last_week -> Fmt.pf ppf "last-week"
   | `Last_fetch -> Fmt.pf ppf "last-fetch"
   | `Date (x, y) -> Fmt.pf ppf "range=%S-%S" x y
 
-let () =
+let run since =
   Fmt.pr "FETCH: %a\n%!" pp_since since;
   match mode with
   | `Normal ->
@@ -134,3 +132,5 @@ let () =
     (* When testing formatting changes, it is quicker to fetch the data once and then load it again for each test: *)
     let from = mtime last_fetch_file |> Option.value ~default:0.0 |> to_8601 in
     show ~from @@ Yojson.Safe.from_file "activity.json"
+
+let () = Term.exit @@ Term.eval (Term.(pure run $ since), info)
