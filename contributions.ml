@@ -3,9 +3,9 @@ module Json = Yojson.Safe
 let ( / ) a b = Json.Util.member b a
 
 let query =
-  {| query($from: DateTime!) {
-   viewer { 
-    contributionsCollection(from: $from) {
+  {| query($from: DateTime!, $to: DateTime!) {
+   viewer {
+    contributionsCollection(from: $from, to: $to) {
       issueContributions(first: 100) {
         nodes {
           occurredAt
@@ -54,21 +54,11 @@ let query =
   }
 }|}
 
-let to_8601 t =
-  let open Unix in
-  let t = gmtime t in
-  Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ"
-    (t.tm_year + 1900)
-    (t.tm_mon + 1)
-    (t.tm_mday)
-    (t.tm_hour)
-    (t.tm_min)
-    (t.tm_sec)
-
-let fetch ~from ~token =
+let fetch ~period:(start, finish) ~token =
   Lwt_main.run begin
     let variables = [
-      "from", `String (to_8601 from);
+        "from", `String start;
+        "to", `String finish;
     ] in
     Graphql.exec token ~variables query
   end
@@ -133,7 +123,6 @@ let read_repos json =
   { kind = `New_repo; date; url; title = "Created new repository"; body = ""; repo }
 
 let of_json ~from json =
-  let from = to_8601 from in
   let contribs = json / "data" / "viewer" / "contributionsCollection" in
   let items =
     read_issues  (contribs / "issueContributions") @

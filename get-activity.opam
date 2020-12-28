@@ -7,6 +7,9 @@ homepage: "https://github.com/talex5/get-activity"
 bug-reports: "https://github.com/talex5/get-activity/issues"
 depends: [
   "dune" {>= "2.3"}
+  "cmdliner"
+  "cohttp"
+  "cohttp-lwt"
   "cohttp-lwt-unix"
   "yojson"
   "ocaml" {>= "4.08"}

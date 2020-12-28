@@ -38,39 +38,91 @@ let set_mtime path time =
 let get_token () =
   Token.load (home / ".github" / "github-activity-token")
 
-(* Run [fn timestamp], where [timestamp] is the last recorded timestamp (if any).
-   On success, update the timestamp to the start time. *)
-let with_timestamp fn =
+let to_8601 t =
+  let open Unix in
+  let t = gmtime t in
+  Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ"
+    (t.tm_year + 1900)
+    (t.tm_mon + 1)
+    (t.tm_mday)
+    (t.tm_hour)
+    (t.tm_min)
+    (t.tm_sec)
+
+(* Run [fn (start, finish)], where [(start, finish)] is the period specified by [period].
+   If [period] is [`Since_last_fetch] or [`Last_week] then update the last-fetch timestamp on success. *)
+let with_period period fn =
   let now = Unix.time () in
-  let last_fetch = mtime last_fetch_file in
-  fn last_fetch;
-  set_mtime last_fetch_file now
+  let last_week = now -. one_week in
+  let range =
+    match period with
+    | `Since_last_fetch ->
+      let last_fetch = Option.value ~default:last_week (mtime last_fetch_file) in
+      (to_8601 last_fetch, to_8601 now)
+    | `Last_week ->
+      (to_8601 last_week, to_8601 now)
+    | `Range r -> r
+  in
+  fn range;
+  match period with
+  | `Since_last_fetch | `Last_week -> set_mtime last_fetch_file now
+  | `Range _ -> ()
 
 let show ~from json =
   let contribs = Contributions.of_json ~from json in
   if Contributions.is_empty contribs then
-    Fmt.epr "(no activity found since %s)@." (Contributions.to_8601 from)
+    Fmt.epr "(no activity found since %s)@." from
   else
     Fmt.pr "@[<v>%a@]@." Contributions.pp contribs
 
 let mode = `Normal
 
-let () =
+open Cmdliner
+
+let from =
+  let doc =
+    Arg.info ~docv:"TIMESTAMP" ~doc:"Starting date (ISO8601)." [ "from" ]
+  in
+  Arg.(value & opt (some string) None & doc)
+
+let to_ =
+  let doc = Arg.info ~docv:"TIMESTAMP" ~doc:"Ending date (ISO8601)." [ "to" ] in
+  Arg.(value & opt (some string) None & doc)
+
+let last_week =
+  let doc = Arg.info ~doc:"Show activity from last week" [ "last-week" ] in
+  Arg.(value & flag doc)
+
+let period =
+  let f from to_ last_week =
+    if last_week then `Last_week
+    else
+      match (from, to_) with
+      | None, None -> `Since_last_fetch
+      | Some x, Some y -> `Range (x, y)
+      | _ -> Fmt.invalid_arg "--to and --from should be provided together"
+  in
+  Term.(pure f $ from $ to_ $ last_week)
+
+let info = Term.info "get-activity"
+
+let run period : unit =
   match mode with
   | `Normal ->
-    with_timestamp (fun last_fetch ->
-        let from = Option.value last_fetch ~default:(Unix.time () -. one_week) in
+    with_period period (fun period ->
+        (* Fmt.pr "period: %a@." Fmt.(pair string string) period; *)
         let token = get_token () |> or_die in
-        show ~from @@ Contributions.fetch ~from ~token
+        show ~from:(fst period) @@ Contributions.fetch ~period ~token
       )
   | `Save ->
-    with_timestamp (fun last_fetch ->
-        let from = Option.value last_fetch ~default:(Unix.time () -. one_week) in
+    with_period period (fun period ->
         let token = get_token () |> or_die in
-        Contributions.fetch ~from ~token
+        Contributions.fetch ~period ~token
         |> Yojson.Safe.to_file "activity.json"
       )
   | `Load ->
     (* When testing formatting changes, it is quicker to fetch the data once and then load it again for each test: *)
-    let from = mtime last_fetch_file |> Option.value ~default:0.0 in
+    let from = mtime last_fetch_file |> Option.value ~default:0.0 |> to_8601 in
     show ~from @@ Yojson.Safe.from_file "activity.json"
+
+let () = Term.exit @@ Term.eval (Term.(pure run $ period), info)
