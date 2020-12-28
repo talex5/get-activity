@@ -49,27 +49,24 @@ let to_8601 t =
     (t.tm_min)
     (t.tm_sec)
 
-(* Run [fn timestamp], where [timestamp] is the last recorded timestamp (if any).
-   On success, update the timestamp to the start time. *)
-let with_timestamp since fn =
+(* Run [fn (start, finish)], where [(start, finish)] is the period specified by [period].
+   If [period] is [`Since_last_fetch] or [`Last_week] then update the last-fetch timestamp on success. *)
+let with_period period fn =
   let now = Unix.time () in
-    let to_ =
-    match since with
-    | `Last_fetch | `Last_week -> to_8601 now
-    | `Date (_, t) -> t
+  let last_week = now -. one_week in
+  let range =
+    match period with
+    | `Since_last_fetch ->
+      let last_fetch = Option.value ~default:last_week (mtime last_fetch_file) in
+      (to_8601 last_fetch, to_8601 now)
+    | `Last_week ->
+      (to_8601 last_week, to_8601 now)
+    | `Range r -> r
   in
-  let from =
-    let last_week = now -. one_week in
-    match since with
-    | `Last_fetch ->
-        to_8601 @@ Option.value ~default:last_week (mtime last_fetch_file)
-    | `Last_week -> to_8601 last_week
-    | `Date (t, _) -> t
-  in
-  fn from to_;
-  match since with
-  | `Last_fetch | `Last_week -> set_mtime last_fetch_file now
-  | `Date _ -> ()
+  fn range;
+  match period with
+  | `Since_last_fetch | `Last_week -> set_mtime last_fetch_file now
+  | `Range _ -> ()
 
 let show ~from json =
   let contribs = Contributions.of_json ~from json in
@@ -96,36 +93,31 @@ let last_week =
   let doc = Arg.info ~doc:"Show activity from last week" [ "last-week" ] in
   Arg.(value & flag doc)
 
-let since =
+let period =
   let f from to_ last_week =
     if last_week then `Last_week
     else
       match (from, to_) with
-      | None, None -> `Last_fetch
-      | Some x, Some y -> `Date (x, y)
+      | None, None -> `Since_last_fetch
+      | Some x, Some y -> `Range (x, y)
       | _ -> Fmt.invalid_arg "--to and --from should be provided together"
   in
   Term.(pure f $ from $ to_ $ last_week)
 
 let info = Term.info "get-activity"
 
-let pp_since ppf = function
-  | `Last_week -> Fmt.pf ppf "last-week"
-  | `Last_fetch -> Fmt.pf ppf "last-fetch"
-  | `Date (x, y) -> Fmt.pf ppf "range=%S-%S" x y
-
-let run since =
-  Fmt.pr "FETCH: %a\n%!" pp_since since;
+let run period : unit =
   match mode with
   | `Normal ->
-    with_timestamp since (fun from to_ ->
+    with_period period (fun period ->
+        (* Fmt.pr "period: %a@." Fmt.(pair string string) period; *)
         let token = get_token () |> or_die in
-        show ~from @@ Contributions.fetch ~from ~to_ ~token
+        show ~from:(fst period) @@ Contributions.fetch ~period ~token
       )
   | `Save ->
-    with_timestamp since (fun from to_ ->
+    with_period period (fun period ->
         let token = get_token () |> or_die in
-        Contributions.fetch ~from ~to_ ~token
+        Contributions.fetch ~period ~token
         |> Yojson.Safe.to_file "activity.json"
       )
   | `Load ->
@@ -133,4 +125,4 @@ let run since =
     let from = mtime last_fetch_file |> Option.value ~default:0.0 |> to_8601 in
     show ~from @@ Yojson.Safe.from_file "activity.json"
 
-let () = Term.exit @@ Term.eval (Term.(pure run $ since), info)
+let () = Term.exit @@ Term.eval (Term.(pure run $ period), info)

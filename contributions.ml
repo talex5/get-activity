@@ -54,11 +54,11 @@ let query =
   }
 }|}
 
-let fetch ~from ~to_ ~token =
+let fetch ~period:(start, finish) ~token =
   Lwt_main.run begin
     let variables = [
-        "from", `String from;
-        "to", `String to_;
+        "from", `String start;
+        "to", `String finish;
     ] in
     Graphql.exec token ~variables query
   end
