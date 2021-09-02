@@ -14,4 +14,5 @@
   cohttp-lwt
   cohttp-lwt-unix
   yojson
+  tls
   (ocaml (>= 4.08))))
